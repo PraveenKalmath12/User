@@ -1,7 +1,7 @@
 import express from 'express'; // Import express
 import cors from 'cors'; // Import cors
 import connectToMongoDB from './Adapters/Mongodb.adapter.js'; 
-import adminRoutes from './routes/Admin.routes.js'; 
+// import adminRoutes from './routes/Admin.routes.js'; 
 import userRoutes from './routes/User.routes.js';
 import { https } from 'firebase-functions';
 
@@ -14,7 +14,7 @@ app.use(express.json());
 connectToMongoDB();
 
 // Import and use admin routes
-app.use('/admin', adminRoutes);
+// app.use('/admin', adminRoutes);
 app.use('/api/v-1/user', userRoutes);
 
 // Use Firebase Functions to export your Express app
