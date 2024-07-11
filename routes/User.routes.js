@@ -7,7 +7,8 @@ import {
     getUsers,
     getUserById,
     updateUser,
-    deleteUser
+    deleteUser,
+    updatePoints
 } from '../Contollers/User.controller.js'; 
 
 
@@ -19,5 +20,6 @@ router.get('/getallusers', getUsers);
 router.get('/getuserbyid/:id', getUserById);
 router.put('/updateuser/:id', upload.fields([{ name: 'aadhar', maxCount: 1 }, { name: 'pan', maxCount: 1 }]), updateUser);
 router.delete('/deleteuser/:id', deleteUser);
+router.patch('/points/:userId', updatePoints);
 
 export default router;

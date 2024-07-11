@@ -5,6 +5,9 @@ import axios from 'axios';
 import dotenv from 'dotenv'
 import multer from "multer";
 import { initializeApp } from "firebase/app";
+import WeeklyTopper from '../Models/Weekly.model.js';
+import MonthlyTopper from "../Models/Monthly.model.js";
+
 dotenv.config();
 
 const upload = multer();
@@ -219,3 +222,229 @@ export const deleteUser = async (req, res, next) => {
         res.status(500).json({ error: "UserId Formet Invalid or Server error" });
     }
 };
+
+
+/* 
+=>here only updating points based on increment old points + added points
+=>this code maintaining weekly and monthly leader board and storing the data in respective schema 
+=>along code comments are their for particular function
+ */
+export const updatePoints = async (req, res) => {
+  const { userId } = req.params;
+  const { pointsToAdd } = req.body;
+
+  try {
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const prevPoints = user.points;
+    user.points += pointsToAdd;
+    await user.save();
+
+    // Determine current week and month information
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentWeekStartDate = getWeekStartDate(currentDate);
+    const currentWeekEndDate = getWeekEndDate(currentDate);
+    const currentMonthStartDate = getMonthStartDate(currentDate);
+    const currentMonthEndDate = getMonthEndDate(currentDate);
+
+    // Find WeeklyTopper document for the current week
+    let weeklyTopper = await WeeklyTopper.findOne({
+      year: currentYear,
+      weekStartDate: currentWeekStartDate,
+      weekEndDate: currentWeekEndDate
+    });
+
+    if (!weeklyTopper) {
+      // Create new WeeklyTopper document for the current week
+      weeklyTopper = new WeeklyTopper({
+        year: currentYear,
+        weekStartDate: currentWeekStartDate,
+        weekEndDate: currentWeekEndDate,
+        topUsers: []
+      });
+    }
+
+    // Update or add user to topUsers for this week
+    if (weeklyTopper.topUsers) {
+      const existingUserWeek = weeklyTopper.topUsers.find(u => u.clientId.toString() === userId);
+
+      if (existingUserWeek) {
+        // Update existing user's points
+        existingUserWeek.points += pointsToAdd;
+      } else {
+        // Add new user to topUsers if there's space
+        if (weeklyTopper.topUsers.length < 10) {
+          weeklyTopper.topUsers.push({
+            clientId: userId,
+            points: pointsToAdd
+          });
+        } else {
+          // Replace the user with the lowest points if not in top 10
+          weeklyTopper.topUsers.sort((a, b) => a.points - b.points);
+          if (pointsToAdd > weeklyTopper.topUsers[0].points) {
+            weeklyTopper.topUsers[0] = {
+              clientId: userId,
+              points: pointsToAdd
+            };
+          }
+        }
+      }
+    } else {
+      console.error('WeeklyTopper.topUsers is null or undefined');
+      return res.status(500).json({ error: 'Server error' });
+    }
+
+    // Save the updated WeeklyTopper document for the week
+    await weeklyTopper.save();
+
+    // Find MonthlyTopper document for the current month
+    let monthlyTopper = await MonthlyTopper.findOne({
+      year: currentYear,
+      monthStartDate: currentMonthStartDate,
+      monthEndDate: currentMonthEndDate
+    });
+
+    if (!monthlyTopper) {
+      // Create new MonthlyTopper document for the current month
+      monthlyTopper = new MonthlyTopper({
+        year: currentYear,
+        monthStartDate: currentMonthStartDate,
+        monthEndDate: currentMonthEndDate,
+        topUsers: []
+      });
+    }
+
+    // Update or add user to topUsers for this month
+    if (monthlyTopper.topUsers) {
+      const existingUserMonth = monthlyTopper.topUsers.find(u => u.clientId.toString() === userId);
+
+      if (existingUserMonth) {
+        // Update existing user's points
+        existingUserMonth.points += pointsToAdd;
+      } else {
+        // Add new user to topUsers if there's space
+        if (monthlyTopper.topUsers.length < 10) {
+          monthlyTopper.topUsers.push({
+            clientId: userId,
+            points: pointsToAdd
+          });
+        } else {
+          // Replace the user with the lowest points if not in top 10
+          monthlyTopper.topUsers.sort((a, b) => a.points - b.points);
+          if (pointsToAdd > monthlyTopper.topUsers[0].points) {
+            monthlyTopper.topUsers[0] = {
+              clientId: userId,
+              points: pointsToAdd
+            };
+          }
+        }
+      }
+    } else {
+      console.error('MonthlyTopper.topUsers is null or undefined');
+      return res.status(500).json({ error: 'Server error' });
+    }
+
+    // Save the updated MonthlyTopper document for the month
+    await monthlyTopper.save();
+
+    // Prepare response
+    const updatedUser = await User.findById(userId);
+    res.json({
+      success: true,
+      message: 'Points updated successfully',
+      user: updatedUser,
+      previousPoints: prevPoints
+    });
+  } catch (error) {
+    console.error('Error updating points:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+/*
+=>Test pupose setting time as 1 minute and 2 minute
+*/
+
+// function getWeekStartDate(date) {
+//   const roundedDate = new Date(Math.floor(date.getTime() / (1 * 60 * 1000)) * (1 * 60 * 1000));
+//   console.log(roundedDate, "roundedDateweek");
+//   return roundedDate;
+// }
+
+// function getWeekEndDate(date) {
+//   const roundedDate = new Date(Math.floor(date.getTime() / (1 * 60 * 1000)) * (1 * 60 * 1000) + 1 * 60 * 1000); // 1 minute interval
+//   console.log(roundedDate, "roundedDateendweek");
+//   return roundedDate;
+// }
+
+// function getMonthStartDate(date) {
+//   const roundedDate = new Date(Math.floor(date.getTime() / (2 * 60 * 1000)) * (2 * 60 * 1000));
+//   console.log(roundedDate, "roundedDatemonth");
+//   return roundedDate;
+// }
+
+// function getMonthEndDate(date) {
+//   const roundedDate = new Date(Math.floor(date.getTime() / (2 * 60 * 1000)) * (2 * 60 * 1000) + 2 * 60 * 1000); // 2 minutes interval
+//   console.log(roundedDate, "roundedDateendmonth");
+//   return roundedDate;
+// }
+
+/*
+=>Actual Week and month from calender fetching and adding 5 hrs 30 minutes to convert it to indian time 
+*/
+function getWeekStartDate(date) {
+  const currentDate = new Date(date);
+  const currentDay = currentDate.getDay();
+  const startOfWeek = new Date(currentDate);
+  startOfWeek.setDate(currentDate.getDate() - currentDay); // Move to the start of the current week (Sunday)
+  startOfWeek.setHours(0, 0, 0, 0); // Set time to 00:00:00
+
+  // Add 5 hours and 30 minutes
+  startOfWeek.setHours(startOfWeek.getHours() + 5);
+  startOfWeek.setMinutes(startOfWeek.getMinutes() + 30);
+
+  return startOfWeek;
+}
+
+function getWeekEndDate(date) {
+  const startOfWeek = getWeekStartDate(date);
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 7); // Move to the end of the week (next Sunday)
+  endOfWeek.setHours(23, 59, 59, 999); // Set time to 23:59:59.999
+
+  // Add 5 hours and 30 minutes
+  endOfWeek.setHours(endOfWeek.getHours() + 5);
+  endOfWeek.setMinutes(endOfWeek.getMinutes() + 30);
+
+  return endOfWeek;
+}
+
+
+function getMonthStartDate(date) {
+  const currentDate = new Date(date);
+  const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1); // First day of the current month
+  startOfMonth.setHours(0, 0, 0, 0); // Set time to 00:00:00
+
+  // Add 5 hours and 30 minutes
+  startOfMonth.setHours(startOfMonth.getHours() + 5);
+  startOfMonth.setMinutes(startOfMonth.getMinutes() + 30);
+
+  return startOfMonth;
+}
+
+function getMonthEndDate(date) {
+  const startOfMonth = getMonthStartDate(date);
+  const nextMonth = new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() + 1, 1); // First day of next month
+  const endOfMonth = new Date(nextMonth.getTime() - 1); // Last millisecond of current month
+
+  // Add 5 hours and 30 minutes
+  endOfMonth.setHours(endOfMonth.getHours() + 5);
+  endOfMonth.setMinutes(endOfMonth.getMinutes() + 30);
+
+  return endOfMonth;
+}

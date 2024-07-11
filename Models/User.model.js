@@ -34,6 +34,10 @@ const userSchema = new Schema(
     pan: {
       type: String,
     },
+    points: {
+      type: Number,
+      default: 0 },
+
     verificationstatus:{
         type: Boolean,
         default:false,
