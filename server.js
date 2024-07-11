@@ -17,10 +17,10 @@ connectToMongoDB();
 // app.use('/admin', adminRoutes);
 app.use('/api/v-1/user', userRoutes);
 
-// const port = 5051;
-// app.listen(port, () => {
-//     console.log(`Server is running on http://localhost:${port}`);
-// });
+const port = 5051;
+app.listen(port, () => {
+    console.log(`Server is running on http://localhost:${port}`);
+});
 
 // Use Firebase Functions to export your Express app
-export const api = https.onRequest(app);
+// export const api = https.onRequest(app);
